@@ -48,7 +48,7 @@ function Game() {
       audio.chime();
     } else {
       audio.whoosh(0.35);
-      if (currentRole?.id === "loup_garou") {
+      if (currentRole?.id === "loup-garou") {
         setTimeout(() => audio.howl(0.7), 500);
       }
     }
