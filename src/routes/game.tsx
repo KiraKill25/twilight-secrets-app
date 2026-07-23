@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLang, useGame } from "@/lib/store";
 import { T, roleKey } from "@/i18n/translations";
 import { ROLE_MAP, ROLES } from "@/lib/roles";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { audio } from "@/lib/audio";
 
 export const Route = createFileRoute("/game")({
   head: () => ({
@@ -37,6 +38,22 @@ function Game() {
   const totalSteps = nightPhases.length + 1; // + day
   const isDay = phaseIdx >= nightPhases.length;
   const currentRole = !isDay ? nightPhases[phaseIdx] : null;
+
+  useEffect(() => {
+    audio.startAmbient();
+  }, []);
+
+  useEffect(() => {
+    if (isDay) {
+      audio.chime();
+    } else {
+      audio.whoosh(0.35);
+      if (currentRole?.id === "loup_garou") {
+        setTimeout(() => audio.howl(0.7), 500);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phaseIdx]);
 
   const playersForRole = (roleId: string) =>
     game.assignments.filter((a) => a.role === roleId).map((a) => a.player);

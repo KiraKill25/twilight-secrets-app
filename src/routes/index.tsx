@@ -35,8 +35,13 @@ function Home() {
       <header className="relative z-10 flex items-center justify-between px-5 pt-6">
         <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
           {t.offline}
+        <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+          {t.offline}
         </span>
-        <LanguageSwitcher lang={lang} onChange={setLang} />
+        <div className="flex items-center gap-2">
+          <SoundToggle autoStart />
+          <LanguageSwitcher lang={lang} onChange={setLang} />
+        </div>
       </header>
 
       <section className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
@@ -51,6 +56,7 @@ function Home() {
         <div className="flex w-full max-w-xs flex-col gap-3 pt-6">
           <Link
             to="/setup"
+            onClick={() => audio.startAmbient()}
             className="w-full rounded-2xl bg-gradient-primary animate-gradient-shift px-6 py-4 text-base font-semibold text-primary-foreground ring-glow transition-transform active:scale-[0.98]"
           >
             {t.newGame}
