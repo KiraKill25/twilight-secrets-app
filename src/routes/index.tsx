@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { WolfLogo } from "@/components/WolfLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { SoundToggle } from "@/components/SoundToggle";
 import { useLang, useGame } from "@/lib/store";
 import { T } from "@/i18n/translations";
+import { audio } from "@/lib/audio";
 
 export const Route = createFileRoute("/")({
   head: () => ({
