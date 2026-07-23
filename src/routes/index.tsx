@@ -35,8 +35,6 @@ function Home() {
       <header className="relative z-10 flex items-center justify-between px-5 pt-6">
         <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
           {t.offline}
-        <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          {t.offline}
         </span>
         <div className="flex items-center gap-2">
           <SoundToggle autoStart />
