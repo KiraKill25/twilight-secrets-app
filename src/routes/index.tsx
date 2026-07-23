@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({
       { title: "Loup-Garou — Village of Shadows" },
       { name: "description", content: "Offline multilingual Werewolf party game with modern AMOLED design." },
       { property: "og:title", content: "Loup-Garou — Village of Shadows" },
-      { property: "og:description", content: "Offline multilingual Werewolf party game." },
+      { property: "og:description", content: "Offline multilingual Werewolf party game with modern AMOLED design." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
