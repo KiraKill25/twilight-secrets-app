@@ -21,30 +21,67 @@ jobs:
       - name: Build Lovable Web Project
         run: |
           npm install --legacy-peer-deps
-          npm run build || npx vite build
+          npm run build
 
       - name: Package with Capacitor
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
 
-          # Find directory containing index.html in build outputs
-          INDEX_PATH=$(find .output dist build public -name "index.html" 2>/dev/null | head -n 1)
+          # Create clean dist directory
+          mkdir -p dist
 
-          # If no index.html was output, force a static Vite build
-          if [ -z "$INDEX_PATH" ]; then
-            echo "No index.html found. Forcing static Vite SPA build..."
-            npx vite build --outDir dist
-            INDEX_PATH="dist/index.html"
+          # Copy compiled Lovable web assets into dist
+          if [ -d ".output/public" ]; then
+            cp -r .output/public/* dist/
+          fi
+          if [ -d "public" ]; then
+            cp -r public/* dist/ 2>/dev/null || true
           fi
 
-          WEB_DIR=$(dirname "$INDEX_PATH")
-          echo "Using web directory: $WEB_DIR"
+          # Ensure index.html exists in dist
+          if [ ! -f "dist/index.html" ]; then
+            echo "Copying base index.html to dist..."
+            if [ -f "index.html" ]; then
+              cp index.html dist/index.html
+            else
+              cat <<'HTML' > dist/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twilight App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+HTML
+            fi
 
+            # Automatically link compiled JS and CSS bundles into dist/index.html
+            MAIN_JS=$(find dist -type f -name "*.js" | head -n 1)
+            MAIN_CSS=$(find dist -type f -name "*.css" | head -n 1)
+
+            if [ -n "$MAIN_JS" ]; then
+              REL_JS=$(echo "$MAIN_JS" | sed 's|^dist/||')
+              sed -i "s|/src/main\.[jt]sx*|/$REL_JS|g" dist/index.html
+            fi
+
+            if [ -n "$MAIN_CSS" ]; then
+              REL_CSS=$(echo "$MAIN_CSS" | sed 's|^dist/||')
+              if ! grep -q "$REL_CSS" dist/index.html; then
+                sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/$REL_CSS\"></head>|" dist/index.html
+              fi
+            fi
+          fi
+
+          # Force Capacitor to use dist
           cat <<EOF > capacitor.config.json
           {
             "appId": "com.twilight.app",
             "appName": "Twilight App",
-            "webDir": "$WEB_DIR"
+            "webDir": "dist"
           }
           EOF
 
