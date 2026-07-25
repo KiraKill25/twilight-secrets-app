@@ -103,6 +103,7 @@ export const T: Record<Lang, Dict> = {
     yes: "Oui",
     no: "Non",
     nobody: "Personne",
+  },
   en: {
     appName: "Werewolf",
     tagline: "The village falls asleep…",
