@@ -3,6 +3,7 @@ import { useLang, useGame } from "@/lib/store";
 import { T, roleKey } from "@/i18n/translations";
 import { ROLE_MAP } from "@/lib/roles";
 import { useState } from "react";
+import moderatorImg from "@/assets/moderator.jpg";
 
 export const Route = createFileRoute("/distribute")({
   head: () => ({
@@ -24,6 +25,7 @@ function Distribute() {
   const t = T[lang];
   const nav = useNavigate();
   const [revealed, setRevealed] = useState(false);
+  const [handoff, setHandoff] = useState(false);
 
   const idx = game.currentReveal;
   const current = game.assignments[idx];
@@ -42,12 +44,48 @@ function Distribute() {
   const next = () => {
     setRevealed(false);
     if (isLast) {
-      setGame((g) => ({ ...g, phase: "play", currentReveal: 0 }));
-      nav({ to: "/game" });
+      setHandoff(true);
     } else {
       setGame((g) => ({ ...g, currentReveal: g.currentReveal + 1 }));
     }
   };
+
+  const startGame = () => {
+    setGame((g) => ({ ...g, phase: "play", currentReveal: 0 }));
+    nav({ to: "/game" });
+  };
+
+  if (handoff) {
+    return (
+      <main className="min-h-[100dvh] bg-hero flex flex-col items-center justify-center px-6 py-8 text-center">
+        <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground animate-in fade-in">
+          {t.passToModerator}
+        </p>
+        <div className="relative mt-6 animate-in fade-in zoom-in duration-700">
+          <div className="absolute inset-0 rounded-3xl bg-gradient-primary blur-3xl opacity-60" aria-hidden />
+          <img
+            src={moderatorImg}
+            alt={t.moderator}
+            width={320}
+            height={320}
+            className="relative h-64 w-64 rounded-3xl object-cover ring-2 ring-primary/60"
+          />
+        </div>
+        <h2 className="mt-6 text-3xl font-bold text-gradient bg-gradient-primary animate-gradient-shift">
+          {t.moderator}
+        </h2>
+        <p className="mt-3 max-w-sm text-sm text-muted-foreground">
+          {t.moderatorIntro}
+        </p>
+        <button
+          onClick={startGame}
+          className="mt-10 rounded-2xl bg-gradient-primary animate-gradient-shift px-10 py-5 text-lg font-semibold text-primary-foreground ring-glow"
+        >
+          {t.beginNight} →
+        </button>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-[100dvh] bg-hero flex flex-col items-center justify-center px-6 py-8 text-center">
