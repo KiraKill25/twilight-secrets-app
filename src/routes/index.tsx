@@ -1,10 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { WolfLogo } from "@/components/WolfLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { SoundToggle } from "@/components/SoundToggle";
 import { useLang, useGame } from "@/lib/store";
 import { T } from "@/i18n/translations";
-import { audio } from "@/lib/audio";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,7 +35,6 @@ function Home() {
           {t.offline}
         </span>
         <div className="flex items-center gap-2">
-          <SoundToggle autoStart />
           <LanguageSwitcher lang={lang} onChange={setLang} />
         </div>
       </header>
@@ -54,7 +51,6 @@ function Home() {
         <div className="flex w-full max-w-xs flex-col gap-3 pt-6">
           <Link
             to="/setup"
-            onClick={() => audio.startAmbient()}
             className="w-full rounded-2xl bg-gradient-primary animate-gradient-shift px-6 py-4 text-base font-semibold text-primary-foreground ring-glow transition-transform active:scale-[0.98]"
           >
             {t.newGame}
