@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Build Lovable Web Project
+      - name: Build TanStack Start Web Project
         run: |
           npm install --legacy-peer-deps
           npm run build
@@ -27,56 +27,53 @@ jobs:
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
 
-          # Create clean dist directory
+          # Clean and recreate dist directory
+          rm -rf dist
           mkdir -p dist
 
-          # Copy compiled Lovable web assets into dist
+          # Copy compiled TanStack Start client assets to dist
           if [ -d ".output/public" ]; then
             cp -r .output/public/* dist/
           fi
-          if [ -d "public" ]; then
-            cp -r public/* dist/ 2>/dev/null || true
+
+          # Find entry JS bundle
+          JS_ENTRY=$(find dist -type f \( -name "client*.js" -o -name "entry-client*.js" -o -name "app*.js" -o -name "index*.js" \) | head -n 1)
+          if [ -z "$JS_ENTRY" ]; then
+            JS_ENTRY=$(find dist -type f -name "*.js" -exec ls -s {} + | sort -n -r | head -n 1 | awk '{print $2}')
           fi
 
-          # Ensure index.html exists in dist
-          if [ ! -f "dist/index.html" ]; then
-            echo "Copying base index.html to dist..."
-            if [ -f "index.html" ]; then
-              cp index.html dist/index.html
-            else
-              cat <<'HTML' > dist/index.html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Twilight App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
-HTML
-            fi
-
-            # Automatically link compiled JS and CSS bundles into dist/index.html
-            MAIN_JS=$(find dist -type f -name "*.js" | head -n 1)
-            MAIN_CSS=$(find dist -type f -name "*.css" | head -n 1)
-
-            if [ -n "$MAIN_JS" ]; then
-              REL_JS=$(echo "$MAIN_JS" | sed 's|^dist/||')
-              sed -i "s|/src/main\.[jt]sx*|/$REL_JS|g" dist/index.html
-            fi
-
-            if [ -n "$MAIN_CSS" ]; then
-              REL_CSS=$(echo "$MAIN_CSS" | sed 's|^dist/||')
-              if ! grep -q "$REL_CSS" dist/index.html; then
-                sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/$REL_CSS\"></head>|" dist/index.html
-              fi
-            fi
+          # Get relative path for script tag
+          JS_REL=""
+          if [ -n "$JS_ENTRY" ]; then
+            JS_REL="/$(echo "$JS_ENTRY" | sed 's|^dist/||')"
           fi
 
-          # Force Capacitor to use dist
+          # Get relative paths for stylesheet link tags
+          CSS_TAGS=""
+          for css_file in $(find dist -type f -name "*.css"); do
+            CSS_REL="/$(echo "$css_file" | sed 's|^dist/||')"
+            CSS_TAGS="${CSS_TAGS}<link rel=\"stylesheet\" href=\"${CSS_REL}\">\n"
+          done
+
+          # Create static index.html required by Capacitor
+          cat <<HTML > dist/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+              <title>Twilight App</title>
+              $(echo -e "$CSS_TAGS")
+            </head>
+            <body>
+              <div id="root"></div>
+              <div id="app"></div>
+              $(if [ -n "$JS_REL" ]; then echo "<script type=\"module\" src=\"$JS_REL\"></script>"; fi)
+            </body>
+          </html>
+          HTML
+
+          # Configure Capacitor to read from dist
           cat <<EOF > capacitor.config.json
           {
             "appId": "com.twilight.app",
