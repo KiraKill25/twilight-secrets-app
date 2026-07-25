@@ -1,0 +1,49 @@
+name: Build Lovable Offline APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Lovable Web Project
+        run: |
+          npm install
+          npm run build
+
+      - name: Package with Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Twilight App" "com.twilight.app" --web-dir dist
+          npx cap add android
+          npx cap sync android
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Compile Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Save APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: twilight-offline-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
