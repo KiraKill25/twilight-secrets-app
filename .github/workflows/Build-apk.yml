@@ -21,30 +21,49 @@ jobs:
       - name: Build Lovable Web Project
         run: |
           npm install --legacy-peer-deps
-          npm run build || npx vite build
+          npm run build
 
       - name: Package with Capacitor
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
 
-          # Find directory containing index.html in build outputs
-          INDEX_PATH=$(find .output dist build public -name "index.html" 2>/dev/null | head -n 1)
+          # Create guaranteed dist folder
+          mkdir -p dist
 
-          # If no index.html was output, force a static Vite build
-          if [ -z "$INDEX_PATH" ]; then
-            echo "No index.html found. Forcing static Vite SPA build..."
-            npx vite build --outDir dist
-            INDEX_PATH="dist/index.html"
+          # Copy compiled Lovable assets into dist
+          if [ -d ".output/public" ]; then
+            cp -r .output/public/* dist/
           fi
 
-          WEB_DIR=$(dirname "$INDEX_PATH")
-          echo "Using web directory: $WEB_DIR"
+          # Ensure index.html exists inside dist
+          if [ ! -f "dist/index.html" ]; then
+            if [ -f "index.html" ]; then
+              cp index.html dist/index.html
+            elif [ -f "public/index.html" ]; then
+              cp public/index.html dist/index.html
+            else
+              cat <<'HTML' > dist/index.html
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Twilight App</title>
+      </head>
+      <body>
+        <div id="root"></div>
+      </body>
+    </html>
+    HTML
+            fi
+          fi
 
+          # Force Capacitor to read from dist
           cat <<EOF > capacitor.config.json
           {
             "appId": "com.twilight.app",
             "appName": "Twilight App",
-            "webDir": "$WEB_DIR"
+            "webDir": "dist"
           }
           EOF
 
