@@ -21,20 +21,24 @@ jobs:
       - name: Build Lovable Web Project
         run: |
           npm install --legacy-peer-deps
-          npm run build
+          npm run build || npx vite build
 
       - name: Package with Capacitor
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
 
-          WEB_DIR=".output/public"
-          if [ ! -d "$WEB_DIR" ]; then
-            if [ -d "dist" ]; then WEB_DIR="dist";
-            elif [ -d "build" ]; then WEB_DIR="build";
-            else WEB_DIR="public"; fi
+          # Find directory containing index.html in build outputs
+          INDEX_PATH=$(find .output dist build public -name "index.html" 2>/dev/null | head -n 1)
+
+          # If no index.html was output, force a static Vite build
+          if [ -z "$INDEX_PATH" ]; then
+            echo "No index.html found. Forcing static Vite SPA build..."
+            npx vite build --outDir dist
+            INDEX_PATH="dist/index.html"
           fi
 
-          echo "Using web dir: $WEB_DIR"
+          WEB_DIR=$(dirname "$INDEX_PATH")
+          echo "Using web directory: $WEB_DIR"
 
           cat <<EOF > capacitor.config.json
           {
