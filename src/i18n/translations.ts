@@ -64,6 +64,12 @@ export const T: Record<Lang, Dict> = {
     dead: "Mort",
     alive: "Vivant",
     dayPhaseInfo: "Débat, accusations, vote du village.",
+    passToModerator: "Passer le téléphone au maître du jeu",
+    moderator: "Maître du jeu",
+    moderatorIntro: "Tu guideras le village à travers la nuit et le jour. Appelle les rôles, surveille les vivants et rythme la partie.",
+    beginNight: "Commencer la nuit",
+    round: "Manche",
+    markDead: "Marquer mort/vivant",
   },
   en: {
     appName: "Werewolf",
@@ -120,6 +126,12 @@ export const T: Record<Lang, Dict> = {
     dead: "Dead",
     alive: "Alive",
     dayPhaseInfo: "Debate, accuse, then vote.",
+    passToModerator: "Pass the phone to the game master",
+    moderator: "Game Master",
+    moderatorIntro: "You will guide the village through night and day. Call the roles, track the living, and set the pace.",
+    beginNight: "Begin the night",
+    round: "Round",
+    markDead: "Mark dead/alive",
   },
   ar: {
     appName: "المستذئب",
@@ -176,6 +188,12 @@ export const T: Record<Lang, Dict> = {
     dead: "ميت",
     alive: "حي",
     dayPhaseInfo: "النقاش، الاتهامات، ثم التصويت.",
+    passToModerator: "مرّر الهاتف إلى مدير اللعبة",
+    moderator: "مدير اللعبة",
+    moderatorIntro: "ستقود القرية عبر الليل والنهار. نادِ الأدوار، تابع الأحياء، واضبط إيقاع اللعبة.",
+    beginNight: "ابدأ الليل",
+    round: "الجولة",
+    markDead: "علّم ميت/حي",
   },
 };
 

@@ -4,6 +4,7 @@ import { T, roleKey } from "@/i18n/translations";
 import { ROLE_MAP, ROLES } from "@/lib/roles";
 import { useEffect, useMemo, useState } from "react";
 import { audio } from "@/lib/audio";
+import moderatorImg from "@/assets/moderator.jpg";
 
 export const Route = createFileRoute("/game")({
   head: () => ({
@@ -26,6 +27,7 @@ function Game() {
   const nav = useNavigate();
   const [phaseIdx, setPhaseIdx] = useState(0);
   const [dead, setDead] = useState<Set<string>>(new Set());
+  const [round, setRound] = useState(1);
 
   // Build night order from assigned roles (unique, ordered)
   const nightPhases = useMemo(() => {
@@ -66,7 +68,10 @@ function Game() {
 
   const next = () => {
     if (phaseIdx < totalSteps - 1) setPhaseIdx((i) => i + 1);
-    else setPhaseIdx(0); // loop back to night 1
+    else {
+      setPhaseIdx(0);
+      setRound((r) => r + 1);
+    }
   };
 
   const endGame = () => {
@@ -76,10 +81,24 @@ function Game() {
 
   return (
     <main className="min-h-[100dvh] bg-hero px-5 pb-24 pt-6">
-      <header className="mx-auto flex max-w-md items-center justify-between">
-        <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          {t.narrator}
-        </span>
+      <header className="mx-auto flex max-w-md items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <img
+            src={moderatorImg}
+            alt={t.moderator}
+            width={40}
+            height={40}
+            className="h-9 w-9 rounded-full object-cover ring-2 ring-primary/50"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+              {t.moderator}
+            </span>
+            <span className="text-xs font-semibold">
+              {t.round} {round}
+            </span>
+          </div>
+        </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
             isDay ? "bg-accent/20 text-accent" : "bg-primary/20 text-primary"
