@@ -13,10 +13,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Build Lovable Web Project
         run: |
@@ -27,7 +27,6 @@ jobs:
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
 
-          # Detect output directory
           WEB_DIR=".output/public"
           if [ ! -d "$WEB_DIR" ]; then
             if [ -d "dist" ]; then WEB_DIR="dist";
@@ -37,7 +36,6 @@ jobs:
 
           echo "Using web dir: $WEB_DIR"
 
-          # Write configuration directly to bypass interactive prompt
           cat <<EOF > capacitor.config.json
           {
             "appId": "com.twilight.app",
