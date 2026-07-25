@@ -26,21 +26,26 @@ jobs:
       - name: Package with Capacitor
         run: |
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android
-          
-          # Auto-detect where your project saved the compiled web files
-          if [ -d ".output/public" ]; then
-            WEB_DIR=".output/public"
-          elif [ -d "dist" ]; then
-            WEB_DIR="dist"
-          elif [ -d "build" ]; then
-            WEB_DIR="build"
-          else
-            WEB_DIR="public"
+
+          # Detect output directory
+          WEB_DIR=".output/public"
+          if [ ! -d "$WEB_DIR" ]; then
+            if [ -d "dist" ]; then WEB_DIR="dist";
+            elif [ -d "build" ]; then WEB_DIR="build";
+            else WEB_DIR="public"; fi
           fi
-          
-          echo "Using web directory: $WEB_DIR"
-          
-          npx cap init "Twilight App" "com.twilight.app" --web-dir "$WEB_DIR"
+
+          echo "Using web dir: $WEB_DIR"
+
+          # Write configuration directly to bypass interactive prompt
+          cat <<EOF > capacitor.config.json
+          {
+            "appId": "com.twilight.app",
+            "appName": "Twilight App",
+            "webDir": "$WEB_DIR"
+          }
+          EOF
+
           npx cap add android
           npx cap sync android
 
