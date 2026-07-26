@@ -415,7 +415,7 @@ function WinnerBanner({
 // ==================== NIGHT VIEW ====================
 function NightView({
   role, upcoming, t, playersForRole, alivePlayers, nightLog, setNightLog,
-  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
+  powerHistory, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   role: typeof ROLES[number];
   upcoming: typeof ROLES;
@@ -424,9 +424,7 @@ function NightView({
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  usedPowers: Set<RoleId>;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  powerHistory: Record<PowerKey, Set<string>>;
   defenderHistory: Set<string>;
   defenderShieldUsed: boolean;
   defenderPowerless: boolean;
