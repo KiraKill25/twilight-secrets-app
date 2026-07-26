@@ -22,6 +22,7 @@ export const Route = createFileRoute("/game")({
 type NightLog = {
   wolvesTarget?: string | null;
   defenderProtected?: string | null;
+  defenderShieldActive?: boolean;
   witchSaved?: boolean;
   witchPoisoned?: string | null;
   seerChecked?: string | null;
@@ -33,6 +34,11 @@ type NightLog = {
 };
 
 type Phase = "night" | "report" | "day";
+
+// Roles whose active power is once-per-game (excludes wolves + salvateur which has its own rules).
+const ONE_SHOT_ROLES: RoleId[] = [
+  "voyant", "cupidon", "geolier", "corbeau", "enfant-sauvage",
+];
 
 function actionKind(id: RoleId): "wolves" | "seer" | "witch" | "defender" | "cupid" | "jailer" | "raven" | "wild" | "none" {
   switch (id) {
@@ -48,6 +54,18 @@ function actionKind(id: RoleId): "wolves" | "seer" | "witch" | "defender" | "cup
   }
 }
 
+function computeWinner(
+  alive: string[],
+  assignments: { player: string; role: RoleId }[],
+): "village" | "loups" | null {
+  const teams = alive.map((p) => ROLE_MAP[assignments.find((a) => a.player === p)!.role].team);
+  const wolves = teams.filter((t) => t === "loups").length;
+  const nonWolves = teams.length - wolves;
+  if (wolves === 0) return "village";
+  if (wolves >= nonWolves) return "loups";
+  return null;
+}
+
 function Game() {
   const { lang } = useLang();
   const { game, reset } = useGame();
@@ -58,6 +76,14 @@ function Game() {
   const [dead, setDead] = useState<Set<string>>(new Set());
   const [round, setRound] = useState(1);
   const [nightLog, setNightLog] = useState<NightLog>({});
+
+  // Power tracking (persist for the whole game)
+  const [usedPowers, setUsedPowers] = useState<Set<RoleId>>(new Set());
+  const [witchSaveUsed, setWitchSaveUsed] = useState(false);
+  const [witchKillUsed, setWitchKillUsed] = useState(false);
+  const [defenderHistory, setDefenderHistory] = useState<Set<string>>(new Set());
+  const [defenderShieldUsed, setDefenderShieldUsed] = useState(false);
+  const [defenderPowerless, setDefenderPowerless] = useState(false);
 
   const nightPhases = useMemo(() => {
     const usedRoles = new Set(game.assignments.map((a) => a.role));
@@ -72,6 +98,8 @@ function Game() {
     .map((a) => a.player)
     .filter((p) => !dead.has(p));
 
+  const winner = computeWinner(alivePlayers, game.assignments);
+
   const playersForRole = (roleId: string) =>
     game.assignments.filter((a) => a.role === roleId).map((a) => a.player);
 
@@ -84,14 +112,43 @@ function Game() {
   };
 
   const nextNightPhase = () => {
+    // Commit one-shot power usage for the role that just played
+    const role = currentRole;
+    if (role) {
+      if (ONE_SHOT_ROLES.includes(role.id)) {
+        const key = actionKind(role.id);
+        const used =
+          (key === "seer" && !!nightLog.seerChecked) ||
+          (key === "cupid" && !!nightLog.cupidLovers) ||
+          (key === "jailer" && !!nightLog.jailerLocked) ||
+          (key === "raven" && !!nightLog.ravenCursed) ||
+          (key === "wild" && !!nightLog.wildModel);
+        if (used) setUsedPowers((prev) => new Set(prev).add(role.id));
+      }
+      if (role.id === "sorciere") {
+        if (nightLog.witchSaved) setWitchSaveUsed(true);
+        if (nightLog.witchPoisoned) setWitchKillUsed(true);
+      }
+      if (role.id === "salvateur" && !defenderPowerless) {
+        if (nightLog.defenderShieldActive) {
+          setDefenderShieldUsed(true);
+          setDefenderPowerless(true);
+        } else if (nightLog.defenderProtected) {
+          setDefenderHistory((prev) => new Set(prev).add(nightLog.defenderProtected!));
+        }
+      }
+    }
+
     if (phaseIdx < nightPhases.length - 1) {
       setPhaseIdx((i) => i + 1);
     } else {
       // Resolve deaths
       const deaths = new Set<string>();
       const victim = nightLog.wolvesTarget;
+      const shielded = !!nightLog.defenderShieldActive;
       if (
         victim &&
+        !shielded &&
         victim !== nightLog.defenderProtected &&
         !nightLog.witchSaved &&
         victim !== nightLog.jailerLocked
@@ -158,6 +215,8 @@ function Game() {
         </span>
       </header>
 
+      {winner && <WinnerBanner winner={winner} t={t} onEnd={endGame} />}
+
       {phase === "night" && currentRole && (
         <NightView
           role={currentRole}
@@ -167,6 +226,12 @@ function Game() {
           alivePlayers={alivePlayers}
           nightLog={nightLog}
           setNightLog={setNightLog}
+          usedPowers={usedPowers}
+          witchSaveUsed={witchSaveUsed}
+          witchKillUsed={witchKillUsed}
+          defenderHistory={defenderHistory}
+          defenderShieldUsed={defenderShieldUsed}
+          defenderPowerless={defenderPowerless}
         />
       )}
 
@@ -262,9 +327,36 @@ function Game() {
   );
 }
 
+// ==================== WINNER BANNER ====================
+function WinnerBanner({
+  winner, t, onEnd,
+}: {
+  winner: "village" | "loups";
+  t: Record<string, string>;
+  onEnd: () => void;
+}) {
+  return (
+    <section className="mx-auto mt-6 max-w-md">
+      <div className="card-elevated rounded-3xl border-2 border-accent/60 bg-accent/10 p-5 text-center animate-in fade-in slide-in-from-bottom-4">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-accent">{t.gameOver}</div>
+        <h2 className="mt-2 text-2xl font-bold text-gradient bg-gradient-primary">
+          {winner === "village" ? t.villageWins : t.wolvesWins}
+        </h2>
+        <button
+          onClick={onEnd}
+          className="mt-4 rounded-2xl bg-gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground ring-glow"
+        >
+          {t.announceWinner}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ==================== NIGHT VIEW ====================
 function NightView({
   role, upcoming, t, playersForRole, alivePlayers, nightLog, setNightLog,
+  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   role: typeof ROLES[number];
   upcoming: typeof ROLES;
@@ -273,6 +365,12 @@ function NightView({
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  usedPowers: Set<RoleId>;
+  witchSaveUsed: boolean;
+  witchKillUsed: boolean;
+  defenderHistory: Set<string>;
+  defenderShieldUsed: boolean;
+  defenderPowerless: boolean;
 }) {
   const kind = actionKind(role.id);
   return (
@@ -310,11 +408,18 @@ function NightView({
 
           {/* Action UI */}
           <RoleActionUI
+            role={role}
             kind={kind}
             t={t}
             alivePlayers={alivePlayers}
             nightLog={nightLog}
             setNightLog={setNightLog}
+            usedPowers={usedPowers}
+            witchSaveUsed={witchSaveUsed}
+            witchKillUsed={witchKillUsed}
+            defenderHistory={defenderHistory}
+            defenderShieldUsed={defenderShieldUsed}
+            defenderPowerless={defenderPowerless}
           />
         </div>
       </section>
@@ -345,13 +450,21 @@ function NightView({
 
 // ==================== ROLE ACTION UI ====================
 function RoleActionUI({
-  kind, t, alivePlayers, nightLog, setNightLog,
+  role, kind, t, alivePlayers, nightLog, setNightLog,
+  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
+  role: typeof ROLES[number];
   kind: ReturnType<typeof actionKind>;
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  usedPowers: Set<RoleId>;
+  witchSaveUsed: boolean;
+  witchKillUsed: boolean;
+  defenderHistory: Set<string>;
+  defenderShieldUsed: boolean;
+  defenderPowerless: boolean;
 }) {
   if (kind === "none") return null;
 
@@ -366,6 +479,15 @@ function RoleActionUI({
     witch: t.action_generic,
   } as Record<string, string>)[kind];
 
+  // One-shot lockout (excludes wolves, salvateur, witch — those have custom rules)
+  if (ONE_SHOT_ROLES.includes(role.id) && usedPowers.has(role.id)) {
+    return (
+      <div className="mt-5 border-t border-border/60 pt-4 text-center text-xs text-muted-foreground">
+        {t.powerAlreadyUsed}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-5 border-t border-border/60 pt-4 text-start">
       <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -373,15 +495,31 @@ function RoleActionUI({
       </div>
 
       {kind === "witch" ? (
-        <WitchUI t={t} alivePlayers={alivePlayers} nightLog={nightLog} setNightLog={setNightLog} />
+        <WitchUI
+          t={t}
+          alivePlayers={alivePlayers}
+          nightLog={nightLog}
+          setNightLog={setNightLog}
+          witchSaveUsed={witchSaveUsed}
+          witchKillUsed={witchKillUsed}
+        />
       ) : kind === "cupid" ? (
         <CupidUI t={t} alivePlayers={alivePlayers} nightLog={nightLog} setNightLog={setNightLog} />
+      ) : kind === "defender" ? (
+        <DefenderUI
+          t={t}
+          alivePlayers={alivePlayers}
+          nightLog={nightLog}
+          setNightLog={setNightLog}
+          defenderHistory={defenderHistory}
+          defenderShieldUsed={defenderShieldUsed}
+          defenderPowerless={defenderPowerless}
+        />
       ) : (
         <TargetPicker
           value={
             kind === "wolves" ? nightLog.wolvesTarget ?? null
               : kind === "seer" ? nightLog.seerChecked ?? null
-              : kind === "defender" ? nightLog.defenderProtected ?? null
               : kind === "jailer" ? nightLog.jailerLocked ?? null
               : kind === "raven" ? nightLog.ravenCursed ?? null
               : kind === "wild" ? nightLog.wildModel ?? null
@@ -391,7 +529,6 @@ function RoleActionUI({
             const patch: NightLog = { ...l };
             if (kind === "wolves") patch.wolvesTarget = v;
             if (kind === "seer") patch.seerChecked = v;
-            if (kind === "defender") patch.defenderProtected = v;
             if (kind === "jailer") patch.jailerLocked = v;
             if (kind === "raven") patch.ravenCursed = v;
             if (kind === "wild") patch.wildModel = v;
@@ -406,12 +543,13 @@ function RoleActionUI({
 }
 
 function TargetPicker({
-  value, onChange, players, t,
+  value, onChange, players, t, disabledPlayers,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   players: string[];
   t: Record<string, string>;
+  disabledPlayers?: Set<string>;
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -421,54 +559,122 @@ function TargetPicker({
       >
         {t.nobody}
       </button>
-      {players.map((p) => (
-        <button
-          key={p}
-          onClick={() => onChange(p)}
-          className={`rounded-full border px-3 py-1 text-xs ${value === p ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"}`}
-        >
-          {p}
-        </button>
-      ))}
+      {players.map((p) => {
+        const disabled = disabledPlayers?.has(p);
+        return (
+          <button
+            key={p}
+            disabled={disabled}
+            onClick={() => onChange(p)}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              value === p ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"
+            } ${disabled ? "opacity-40 line-through cursor-not-allowed" : ""}`}
+          >
+            {p}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function WitchUI({
-  t, alivePlayers, nightLog, setNightLog,
+function DefenderUI({
+  t, alivePlayers, nightLog, setNightLog, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  defenderHistory: Set<string>;
+  defenderShieldUsed: boolean;
+  defenderPowerless: boolean;
+}) {
+  if (defenderPowerless) {
+    return (
+      <div className="text-center text-xs text-muted-foreground">{t.defenderPowerless}</div>
+    );
+  }
+  const shieldOn = !!nightLog.defenderShieldActive;
+  return (
+    <div className="space-y-4">
+      {!shieldOn && (
+        <>
+          <div className="text-[11px] text-muted-foreground">{t.cantProtectSame}</div>
+          <TargetPicker
+            value={nightLog.defenderProtected ?? null}
+            onChange={(v) => setNightLog((l) => ({ ...l, defenderProtected: v }))}
+            players={alivePlayers}
+            t={t}
+            disabledPlayers={defenderHistory}
+          />
+        </>
+      )}
+      {!defenderShieldUsed && (
+        <div className="rounded-xl border border-accent/40 bg-accent/5 p-3">
+          <button
+            onClick={() => setNightLog((l) => ({
+              ...l,
+              defenderShieldActive: !l.defenderShieldActive,
+              defenderProtected: !l.defenderShieldActive ? null : l.defenderProtected,
+            }))}
+            className={`w-full rounded-full border px-3 py-2 text-xs font-semibold ${
+              shieldOn ? "border-accent bg-accent/30 text-accent" : "border-border bg-card/60"
+            }`}
+          >
+            🛡 {shieldOn ? t.shieldActivated : t.ultimateShield}
+          </button>
+          <div className="mt-2 text-[10px] text-muted-foreground">{t.shieldOnceOnly}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WitchUI({
+  t, alivePlayers, nightLog, setNightLog, witchSaveUsed, witchKillUsed,
+}: {
+  t: Record<string, string>;
+  alivePlayers: string[];
+  nightLog: NightLog;
+  setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  witchSaveUsed: boolean;
+  witchKillUsed: boolean;
 }) {
   return (
     <div className="space-y-4">
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_save}</div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setNightLog((l) => ({ ...l, witchSaved: true }))}
-            className={`rounded-full border px-3 py-1 text-xs ${nightLog.witchSaved ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"}`}
-          >
-            {t.yes}
-          </button>
-          <button
-            onClick={() => setNightLog((l) => ({ ...l, witchSaved: false }))}
-            className={`rounded-full border px-3 py-1 text-xs ${nightLog.witchSaved === false ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"}`}
-          >
-            {t.no}
-          </button>
-        </div>
+        {witchSaveUsed ? (
+          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setNightLog((l) => ({ ...l, witchSaved: true }))}
+              className={`rounded-full border px-3 py-1 text-xs ${nightLog.witchSaved ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"}`}
+            >
+              {t.yes}
+            </button>
+            <button
+              onClick={() => setNightLog((l) => ({ ...l, witchSaved: false }))}
+              className={`rounded-full border px-3 py-1 text-xs ${nightLog.witchSaved === false ? "border-primary bg-primary/20 text-primary" : "border-border bg-card/60"}`}
+            >
+              {t.no}
+            </button>
+          </div>
+        )}
       </div>
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_kill}</div>
-        <TargetPicker
-          value={nightLog.witchPoisoned ?? null}
-          onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
-          players={alivePlayers}
-          t={t}
-        />
+        {witchKillUsed ? (
+          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
+        ) : (
+          <TargetPicker
+            value={nightLog.witchPoisoned ?? null}
+            onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
+            players={alivePlayers}
+            t={t}
+          />
+        )}
       </div>
     </div>
   );
@@ -521,8 +727,10 @@ function ReportView({
   // Determine tonight's deaths
   const tonight: string[] = [];
   const victim = log.wolvesTarget;
+  const shielded = !!log.defenderShieldActive;
   if (
     victim &&
+    !shielded &&
     victim !== log.defenderProtected &&
     !log.witchSaved &&
     victim !== log.jailerLocked
@@ -550,7 +758,8 @@ function ReportView({
 
         <div className="mt-5 space-y-2">
           {row(t.wolvesAttacked, log.wolvesTarget, "kill")}
-          {log.defenderProtected !== undefined && row(t.defenderProtected, log.defenderProtected, "save")}
+          {shielded && row(t.defenderProtected, "🛡 " + t.shieldActivated, "save")}
+          {!shielded && log.defenderProtected !== undefined && row(t.defenderProtected, log.defenderProtected, "save")}
           {log.witchSaved !== undefined && row(t.witchSaved, log.witchSaved ? t.yes : t.no, "save")}
           {log.witchPoisoned !== undefined && row(t.witchPoisoned, log.witchPoisoned, "kill")}
           {log.seerChecked !== undefined && row(t.seerChecked, log.seerChecked)}
