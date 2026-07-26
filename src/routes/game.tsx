@@ -77,10 +77,17 @@ function Game() {
   const [round, setRound] = useState(1);
   const [nightLog, setNightLog] = useState<NightLog>({});
 
-  // Power tracking (persist for the whole game)
-  const [usedPowers, setUsedPowers] = useState<Set<RoleId>>(new Set());
-  const [witchSaveUsed, setWitchSaveUsed] = useState(false);
-  const [witchKillUsed, setWitchKillUsed] = useState(false);
+  // Power tracking (persist for the whole game).
+  // Each key stores the set of players already targeted by that power.
+  const [powerHistory, setPowerHistory] = useState<Record<PowerKey, Set<string>>>({
+    seer: new Set(),
+    jailer: new Set(),
+    raven: new Set(),
+    wild: new Set(),
+    cupid: new Set(),
+    witchSave: new Set(),
+    witchKill: new Set(),
+  });
   const [defenderHistory, setDefenderHistory] = useState<Set<string>>(new Set());
   const [defenderShieldUsed, setDefenderShieldUsed] = useState(false);
   const [defenderPowerless, setDefenderPowerless] = useState(false);
