@@ -114,6 +114,7 @@ export const T: Record<Lang, Dict> = {
     wolvesWins: "Les Loups ont gagné !",
     announceWinner: "Annoncer les gagnants",
     continueGame: "Continuer la partie",
+    cemetery: "Cimetière",
   },
   en: {
     appName: "Werewolf",
@@ -220,6 +221,7 @@ export const T: Record<Lang, Dict> = {
     wolvesWins: "The Wolves win!",
     announceWinner: "Announce winners",
     continueGame: "Continue playing",
+    cemetery: "Cemetery",
   },
   ar: {
     appName: "المستذئب",
@@ -326,6 +328,7 @@ export const T: Record<Lang, Dict> = {
     wolvesWins: "فازت الذئاب!",
     announceWinner: "أعلن الفائزين",
     continueGame: "متابعة اللعب",
+    cemetery: "المقبرة",
   },
 };
 
