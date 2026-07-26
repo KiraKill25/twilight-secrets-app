@@ -690,21 +690,25 @@ function DefenderUI({
 }
 
 function WitchUI({
-  t, alivePlayers, nightLog, setNightLog, witchSaveUsed, witchKillUsed,
+  t, alivePlayers, nightLog, setNightLog, saveHistory, killHistory,
 }: {
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  saveHistory: Set<string>;
+  killHistory: Set<string>;
 }) {
+  const victim = nightLog.wolvesTarget ?? null;
+  const saveBlocked = !victim || saveHistory.has(victim);
   return (
     <div className="space-y-4">
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_save}</div>
-        {witchSaveUsed ? (
-          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
+        {saveBlocked ? (
+          <div className="text-[11px] text-muted-foreground italic">
+            {victim ? t.powerAlreadyUsed : t.noTarget}
+          </div>
         ) : (
           <div className="flex gap-2">
             <button
@@ -724,31 +728,30 @@ function WitchUI({
       </div>
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_kill}</div>
-        {witchKillUsed ? (
-          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
-        ) : (
-          <TargetPicker
-            value={nightLog.witchPoisoned ?? null}
-            onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
-            players={alivePlayers}
-            t={t}
-          />
-        )}
+        <TargetPicker
+          value={nightLog.witchPoisoned ?? null}
+          onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
+          players={alivePlayers}
+          t={t}
+          disabledPlayers={killHistory}
+        />
       </div>
     </div>
   );
 }
 
 function CupidUI({
-  t, alivePlayers, nightLog, setNightLog,
+  t, alivePlayers, nightLog, setNightLog, cupidHistory,
 }: {
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  cupidHistory: Set<string>;
 }) {
   const [a, b] = nightLog.cupidLovers ?? [null, null];
   const toggle = (p: string) => {
+    if (cupidHistory.has(p)) return;
     const cur = [a, b].filter(Boolean) as string[];
     let next: string[];
     if (cur.includes(p)) next = cur.filter((x) => x !== p);
@@ -760,11 +763,15 @@ function CupidUI({
     <div className="flex flex-wrap gap-1.5">
       {alivePlayers.map((p) => {
         const selected = a === p || b === p;
+        const disabled = cupidHistory.has(p);
         return (
           <button
             key={p}
+            disabled={disabled}
             onClick={() => toggle(p)}
-            className={`rounded-full border px-3 py-1 text-xs ${selected ? "border-accent bg-accent/20 text-accent" : "border-border bg-card/60"}`}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              selected ? "border-accent bg-accent/20 text-accent" : "border-border bg-card/60"
+            } ${disabled ? "opacity-40 line-through cursor-not-allowed" : ""}`}
           >
             {p}
           </button>
