@@ -506,7 +506,7 @@ function NightView({
 // ==================== ROLE ACTION UI ====================
 function RoleActionUI({
   role, kind, t, alivePlayers, nightLog, setNightLog,
-  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
+  powerHistory, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   role: typeof ROLES[number];
   kind: ReturnType<typeof actionKind>;
@@ -514,9 +514,7 @@ function RoleActionUI({
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  usedPowers: Set<RoleId>;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  powerHistory: Record<PowerKey, Set<string>>;
   defenderHistory: Set<string>;
   defenderShieldUsed: boolean;
   defenderPowerless: boolean;
@@ -534,14 +532,13 @@ function RoleActionUI({
     witch: t.action_generic,
   } as Record<string, string>)[kind];
 
-  // One-shot lockout (excludes wolves, salvateur, witch — those have custom rules)
-  if (ONE_SHOT_ROLES.includes(role.id) && usedPowers.has(role.id)) {
-    return (
-      <div className="mt-5 border-t border-border/60 pt-4 text-center text-xs text-muted-foreground">
-        {t.powerAlreadyUsed}
-      </div>
-    );
-  }
+  // Map single-target picker kinds to their history set.
+  const historyByKind: Partial<Record<typeof kind, Set<string>>> = {
+    seer: powerHistory.seer,
+    jailer: powerHistory.jailer,
+    raven: powerHistory.raven,
+    wild: powerHistory.wild,
+  };
 
   return (
     <div className="mt-5 border-t border-border/60 pt-4 text-start">
@@ -555,11 +552,17 @@ function RoleActionUI({
           alivePlayers={alivePlayers}
           nightLog={nightLog}
           setNightLog={setNightLog}
-          witchSaveUsed={witchSaveUsed}
-          witchKillUsed={witchKillUsed}
+          saveHistory={powerHistory.witchSave}
+          killHistory={powerHistory.witchKill}
         />
       ) : kind === "cupid" ? (
-        <CupidUI t={t} alivePlayers={alivePlayers} nightLog={nightLog} setNightLog={setNightLog} />
+        <CupidUI
+          t={t}
+          alivePlayers={alivePlayers}
+          nightLog={nightLog}
+          setNightLog={setNightLog}
+          cupidHistory={powerHistory.cupid}
+        />
       ) : kind === "defender" ? (
         <DefenderUI
           t={t}
@@ -591,6 +594,7 @@ function RoleActionUI({
           })}
           players={alivePlayers}
           t={t}
+          disabledPlayers={historyByKind[kind]}
         />
       )}
     </div>
