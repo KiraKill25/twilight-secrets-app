@@ -288,6 +288,42 @@ function Game() {
         </div>
       </section>
 
+      {/* Cemetery — night only */}
+      {phase === "night" && dead.size > 0 && (
+        <section className="mx-auto mt-6 max-w-md">
+          <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            <SkullIcon className="h-4 w-4 text-blood" />
+            <span>{t.cemetery}</span>
+            <span className="text-muted-foreground/60">· {dead.size}</span>
+          </div>
+          <div className="card-elevated rounded-3xl border border-blood/30 p-3">
+            <ul className="flex flex-wrap gap-2">
+              {game.assignments
+                .filter((a) => dead.has(a.player))
+                .map((a) => {
+                  const role = ROLE_MAP[a.role];
+                  return (
+                    <li
+                      key={a.player}
+                      className="flex items-center gap-2 rounded-2xl border border-blood/30 bg-blood/10 px-3 py-1.5"
+                    >
+                      <SkullIcon className="h-4 w-4 text-blood" />
+                      <span className="text-xs font-medium line-through decoration-blood/70">
+                        {a.player}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {t[roleKey(role.id)]}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        </section>
+      )}
+
+
+
       {/* Sticky footer controls */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/85 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md gap-2">
@@ -324,6 +360,17 @@ function Game() {
         </div>
       </div>
     </main>
+  );
+}
+
+function SkullIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 2a9 9 0 0 0-9 9c0 3.1 1.6 5.8 4 7.4V21a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2.6c2.4-1.6 4-4.3 4-7.4a9 9 0 0 0-9-9Z" />
+      <circle cx="9" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="15" cy="12" r="1.6" fill="currentColor" />
+      <path d="M10 17h4M9.5 19.5v2M12 19.5v2M14.5 19.5v2" />
+    </svg>
   );
 }
 
