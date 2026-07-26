@@ -35,10 +35,10 @@ type NightLog = {
 
 type Phase = "night" | "report" | "day";
 
-// Roles whose active power is once-per-game (excludes wolves + salvateur which has its own rules).
-const ONE_SHOT_ROLES: RoleId[] = [
-  "voyant", "cupidon", "geolier", "corbeau", "enfant-sauvage",
-];
+// Power-history keys tracked across the whole game (per-role, per-action).
+// Wolves are intentionally excluded — they can attack any living player every night.
+// Salvateur has its own dedicated history + ultimate-shield logic.
+type PowerKey = "seer" | "jailer" | "raven" | "wild" | "cupid" | "witchSave" | "witchKill";
 
 function actionKind(id: RoleId): "wolves" | "seer" | "witch" | "defender" | "cupid" | "jailer" | "raven" | "wild" | "none" {
   switch (id) {
@@ -77,10 +77,17 @@ function Game() {
   const [round, setRound] = useState(1);
   const [nightLog, setNightLog] = useState<NightLog>({});
 
-  // Power tracking (persist for the whole game)
-  const [usedPowers, setUsedPowers] = useState<Set<RoleId>>(new Set());
-  const [witchSaveUsed, setWitchSaveUsed] = useState(false);
-  const [witchKillUsed, setWitchKillUsed] = useState(false);
+  // Power tracking (persist for the whole game).
+  // Each key stores the set of players already targeted by that power.
+  const [powerHistory, setPowerHistory] = useState<Record<PowerKey, Set<string>>>({
+    seer: new Set(),
+    jailer: new Set(),
+    raven: new Set(),
+    wild: new Set(),
+    cupid: new Set(),
+    witchSave: new Set(),
+    witchKill: new Set(),
+  });
   const [defenderHistory, setDefenderHistory] = useState<Set<string>>(new Set());
   const [defenderShieldUsed, setDefenderShieldUsed] = useState(false);
   const [defenderPowerless, setDefenderPowerless] = useState(false);
@@ -112,22 +119,28 @@ function Game() {
   };
 
   const nextNightPhase = () => {
-    // Commit one-shot power usage for the role that just played
+    // Commit power-target history for the role that just played.
     const role = currentRole;
     if (role) {
-      if (ONE_SHOT_ROLES.includes(role.id)) {
-        const key = actionKind(role.id);
-        const used =
-          (key === "seer" && !!nightLog.seerChecked) ||
-          (key === "cupid" && !!nightLog.cupidLovers) ||
-          (key === "jailer" && !!nightLog.jailerLocked) ||
-          (key === "raven" && !!nightLog.ravenCursed) ||
-          (key === "wild" && !!nightLog.wildModel);
-        if (used) setUsedPowers((prev) => new Set(prev).add(role.id));
-      }
+      const additions: Partial<Record<PowerKey, string[]>> = {};
+      if (role.id === "voyant" && nightLog.seerChecked) additions.seer = [nightLog.seerChecked];
+      if (role.id === "geolier" && nightLog.jailerLocked) additions.jailer = [nightLog.jailerLocked];
+      if (role.id === "corbeau" && nightLog.ravenCursed) additions.raven = [nightLog.ravenCursed];
+      if (role.id === "enfant-sauvage" && nightLog.wildModel) additions.wild = [nightLog.wildModel];
+      if (role.id === "cupidon" && nightLog.cupidLovers) additions.cupid = [...nightLog.cupidLovers];
       if (role.id === "sorciere") {
-        if (nightLog.witchSaved) setWitchSaveUsed(true);
-        if (nightLog.witchPoisoned) setWitchKillUsed(true);
+        if (nightLog.witchSaved && nightLog.wolvesTarget) additions.witchSave = [nightLog.wolvesTarget];
+        if (nightLog.witchPoisoned) additions.witchKill = [nightLog.witchPoisoned];
+      }
+      if (Object.keys(additions).length) {
+        setPowerHistory((prev) => {
+          const next = { ...prev };
+          (Object.keys(additions) as PowerKey[]).forEach((k) => {
+            next[k] = new Set(prev[k]);
+            additions[k]!.forEach((p) => next[k].add(p));
+          });
+          return next;
+        });
       }
       if (role.id === "salvateur" && !defenderPowerless) {
         if (nightLog.defenderShieldActive) {
@@ -138,6 +151,7 @@ function Game() {
         }
       }
     }
+
 
     if (phaseIdx < nightPhases.length - 1) {
       setPhaseIdx((i) => i + 1);
@@ -226,9 +240,7 @@ function Game() {
           alivePlayers={alivePlayers}
           nightLog={nightLog}
           setNightLog={setNightLog}
-          usedPowers={usedPowers}
-          witchSaveUsed={witchSaveUsed}
-          witchKillUsed={witchKillUsed}
+          powerHistory={powerHistory}
           defenderHistory={defenderHistory}
           defenderShieldUsed={defenderShieldUsed}
           defenderPowerless={defenderPowerless}
@@ -403,7 +415,7 @@ function WinnerBanner({
 // ==================== NIGHT VIEW ====================
 function NightView({
   role, upcoming, t, playersForRole, alivePlayers, nightLog, setNightLog,
-  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
+  powerHistory, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   role: typeof ROLES[number];
   upcoming: typeof ROLES;
@@ -412,9 +424,7 @@ function NightView({
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  usedPowers: Set<RoleId>;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  powerHistory: Record<PowerKey, Set<string>>;
   defenderHistory: Set<string>;
   defenderShieldUsed: boolean;
   defenderPowerless: boolean;
@@ -461,9 +471,7 @@ function NightView({
             alivePlayers={alivePlayers}
             nightLog={nightLog}
             setNightLog={setNightLog}
-            usedPowers={usedPowers}
-            witchSaveUsed={witchSaveUsed}
-            witchKillUsed={witchKillUsed}
+            powerHistory={powerHistory}
             defenderHistory={defenderHistory}
             defenderShieldUsed={defenderShieldUsed}
             defenderPowerless={defenderPowerless}
@@ -498,7 +506,7 @@ function NightView({
 // ==================== ROLE ACTION UI ====================
 function RoleActionUI({
   role, kind, t, alivePlayers, nightLog, setNightLog,
-  usedPowers, witchSaveUsed, witchKillUsed, defenderHistory, defenderShieldUsed, defenderPowerless,
+  powerHistory, defenderHistory, defenderShieldUsed, defenderPowerless,
 }: {
   role: typeof ROLES[number];
   kind: ReturnType<typeof actionKind>;
@@ -506,9 +514,7 @@ function RoleActionUI({
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  usedPowers: Set<RoleId>;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  powerHistory: Record<PowerKey, Set<string>>;
   defenderHistory: Set<string>;
   defenderShieldUsed: boolean;
   defenderPowerless: boolean;
@@ -526,14 +532,13 @@ function RoleActionUI({
     witch: t.action_generic,
   } as Record<string, string>)[kind];
 
-  // One-shot lockout (excludes wolves, salvateur, witch — those have custom rules)
-  if (ONE_SHOT_ROLES.includes(role.id) && usedPowers.has(role.id)) {
-    return (
-      <div className="mt-5 border-t border-border/60 pt-4 text-center text-xs text-muted-foreground">
-        {t.powerAlreadyUsed}
-      </div>
-    );
-  }
+  // Map single-target picker kinds to their history set.
+  const historyByKind: Partial<Record<typeof kind, Set<string>>> = {
+    seer: powerHistory.seer,
+    jailer: powerHistory.jailer,
+    raven: powerHistory.raven,
+    wild: powerHistory.wild,
+  };
 
   return (
     <div className="mt-5 border-t border-border/60 pt-4 text-start">
@@ -547,11 +552,17 @@ function RoleActionUI({
           alivePlayers={alivePlayers}
           nightLog={nightLog}
           setNightLog={setNightLog}
-          witchSaveUsed={witchSaveUsed}
-          witchKillUsed={witchKillUsed}
+          saveHistory={powerHistory.witchSave}
+          killHistory={powerHistory.witchKill}
         />
       ) : kind === "cupid" ? (
-        <CupidUI t={t} alivePlayers={alivePlayers} nightLog={nightLog} setNightLog={setNightLog} />
+        <CupidUI
+          t={t}
+          alivePlayers={alivePlayers}
+          nightLog={nightLog}
+          setNightLog={setNightLog}
+          cupidHistory={powerHistory.cupid}
+        />
       ) : kind === "defender" ? (
         <DefenderUI
           t={t}
@@ -583,6 +594,7 @@ function RoleActionUI({
           })}
           players={alivePlayers}
           t={t}
+          disabledPlayers={historyByKind[kind]}
         />
       )}
     </div>
@@ -678,21 +690,25 @@ function DefenderUI({
 }
 
 function WitchUI({
-  t, alivePlayers, nightLog, setNightLog, witchSaveUsed, witchKillUsed,
+  t, alivePlayers, nightLog, setNightLog, saveHistory, killHistory,
 }: {
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
-  witchSaveUsed: boolean;
-  witchKillUsed: boolean;
+  saveHistory: Set<string>;
+  killHistory: Set<string>;
 }) {
+  const victim = nightLog.wolvesTarget ?? null;
+  const saveBlocked = !victim || saveHistory.has(victim);
   return (
     <div className="space-y-4">
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_save}</div>
-        {witchSaveUsed ? (
-          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
+        {saveBlocked ? (
+          <div className="text-[11px] text-muted-foreground italic">
+            {victim ? t.powerAlreadyUsed : t.noTarget}
+          </div>
         ) : (
           <div className="flex gap-2">
             <button
@@ -712,31 +728,30 @@ function WitchUI({
       </div>
       <div>
         <div className="mb-1.5 text-xs text-muted-foreground">{t.action_witch_kill}</div>
-        {witchKillUsed ? (
-          <div className="text-[11px] text-muted-foreground italic">{t.powerAlreadyUsed}</div>
-        ) : (
-          <TargetPicker
-            value={nightLog.witchPoisoned ?? null}
-            onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
-            players={alivePlayers}
-            t={t}
-          />
-        )}
+        <TargetPicker
+          value={nightLog.witchPoisoned ?? null}
+          onChange={(v) => setNightLog((l) => ({ ...l, witchPoisoned: v }))}
+          players={alivePlayers}
+          t={t}
+          disabledPlayers={killHistory}
+        />
       </div>
     </div>
   );
 }
 
 function CupidUI({
-  t, alivePlayers, nightLog, setNightLog,
+  t, alivePlayers, nightLog, setNightLog, cupidHistory,
 }: {
   t: Record<string, string>;
   alivePlayers: string[];
   nightLog: NightLog;
   setNightLog: (fn: (l: NightLog) => NightLog) => void;
+  cupidHistory: Set<string>;
 }) {
   const [a, b] = nightLog.cupidLovers ?? [null, null];
   const toggle = (p: string) => {
+    if (cupidHistory.has(p)) return;
     const cur = [a, b].filter(Boolean) as string[];
     let next: string[];
     if (cur.includes(p)) next = cur.filter((x) => x !== p);
@@ -748,11 +763,15 @@ function CupidUI({
     <div className="flex flex-wrap gap-1.5">
       {alivePlayers.map((p) => {
         const selected = a === p || b === p;
+        const disabled = cupidHistory.has(p);
         return (
           <button
             key={p}
+            disabled={disabled}
             onClick={() => toggle(p)}
-            className={`rounded-full border px-3 py-1 text-xs ${selected ? "border-accent bg-accent/20 text-accent" : "border-border bg-card/60"}`}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              selected ? "border-accent bg-accent/20 text-accent" : "border-border bg-card/60"
+            } ${disabled ? "opacity-40 line-through cursor-not-allowed" : ""}`}
           >
             {p}
           </button>
