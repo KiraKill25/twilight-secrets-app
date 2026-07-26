@@ -35,10 +35,10 @@ type NightLog = {
 
 type Phase = "night" | "report" | "day";
 
-// Roles whose active power is once-per-game (excludes wolves + salvateur which has its own rules).
-const ONE_SHOT_ROLES: RoleId[] = [
-  "voyant", "cupidon", "geolier", "corbeau", "enfant-sauvage",
-];
+// Power-history keys tracked across the whole game (per-role, per-action).
+// Wolves are intentionally excluded — they can attack any living player every night.
+// Salvateur has its own dedicated history + ultimate-shield logic.
+type PowerKey = "seer" | "jailer" | "raven" | "wild" | "cupid" | "witchSave" | "witchKill";
 
 function actionKind(id: RoleId): "wolves" | "seer" | "witch" | "defender" | "cupid" | "jailer" | "raven" | "wild" | "none" {
   switch (id) {
