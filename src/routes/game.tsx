@@ -471,9 +471,7 @@ function NightView({
             alivePlayers={alivePlayers}
             nightLog={nightLog}
             setNightLog={setNightLog}
-            usedPowers={usedPowers}
-            witchSaveUsed={witchSaveUsed}
-            witchKillUsed={witchKillUsed}
+            powerHistory={powerHistory}
             defenderHistory={defenderHistory}
             defenderShieldUsed={defenderShieldUsed}
             defenderPowerless={defenderPowerless}
