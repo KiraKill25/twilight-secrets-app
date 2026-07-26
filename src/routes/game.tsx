@@ -119,22 +119,28 @@ function Game() {
   };
 
   const nextNightPhase = () => {
-    // Commit one-shot power usage for the role that just played
+    // Commit power-target history for the role that just played.
     const role = currentRole;
     if (role) {
-      if (ONE_SHOT_ROLES.includes(role.id)) {
-        const key = actionKind(role.id);
-        const used =
-          (key === "seer" && !!nightLog.seerChecked) ||
-          (key === "cupid" && !!nightLog.cupidLovers) ||
-          (key === "jailer" && !!nightLog.jailerLocked) ||
-          (key === "raven" && !!nightLog.ravenCursed) ||
-          (key === "wild" && !!nightLog.wildModel);
-        if (used) setUsedPowers((prev) => new Set(prev).add(role.id));
-      }
+      const additions: Partial<Record<PowerKey, string[]>> = {};
+      if (role.id === "voyant" && nightLog.seerChecked) additions.seer = [nightLog.seerChecked];
+      if (role.id === "geolier" && nightLog.jailerLocked) additions.jailer = [nightLog.jailerLocked];
+      if (role.id === "corbeau" && nightLog.ravenCursed) additions.raven = [nightLog.ravenCursed];
+      if (role.id === "enfant-sauvage" && nightLog.wildModel) additions.wild = [nightLog.wildModel];
+      if (role.id === "cupidon" && nightLog.cupidLovers) additions.cupid = [...nightLog.cupidLovers];
       if (role.id === "sorciere") {
-        if (nightLog.witchSaved) setWitchSaveUsed(true);
-        if (nightLog.witchPoisoned) setWitchKillUsed(true);
+        if (nightLog.witchSaved && nightLog.wolvesTarget) additions.witchSave = [nightLog.wolvesTarget];
+        if (nightLog.witchPoisoned) additions.witchKill = [nightLog.witchPoisoned];
+      }
+      if (Object.keys(additions).length) {
+        setPowerHistory((prev) => {
+          const next = { ...prev };
+          (Object.keys(additions) as PowerKey[]).forEach((k) => {
+            next[k] = new Set(prev[k]);
+            additions[k]!.forEach((p) => next[k].add(p));
+          });
+          return next;
+        });
       }
       if (role.id === "salvateur" && !defenderPowerless) {
         if (nightLog.defenderShieldActive) {
@@ -145,6 +151,7 @@ function Game() {
         }
       }
     }
+
 
     if (phaseIdx < nightPhases.length - 1) {
       setPhaseIdx((i) => i + 1);
