@@ -363,6 +363,17 @@ function Game() {
   );
 }
 
+function SkullIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 2a9 9 0 0 0-9 9c0 3.1 1.6 5.8 4 7.4V21a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2.6c2.4-1.6 4-4.3 4-7.4a9 9 0 0 0-9-9Z" />
+      <circle cx="9" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="15" cy="12" r="1.6" fill="currentColor" />
+      <path d="M10 17h4M9.5 19.5v2M12 19.5v2M14.5 19.5v2" />
+    </svg>
+  );
+}
+
 // ==================== WINNER BANNER ====================
 function WinnerBanner({
   winner, t, onEnd,
